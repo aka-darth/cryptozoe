@@ -1,4 +1,4 @@
-importScripts('./labirintCore.js');
+importScripts('./CryptozoeCore.js');
 let board;
 onmessage = function({data}) {
     switch(data.action) {

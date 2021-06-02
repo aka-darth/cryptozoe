@@ -1,5 +1,5 @@
 let life;
-importScripts('./labirintCore.js');
+importScripts('./CryptozoeCore.js');
 onmessage = function({data}) {
     switch(data.action) {
         case "init":

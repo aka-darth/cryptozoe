@@ -135,8 +135,8 @@ function up_chromosomes() {
 }
 up_chromosomes();
 
-const workerRender = new Worker("./labirintWorkerRender.js");
-const worker = new Worker("./labirintWorker.js");
+const workerRender = new Worker("./CryptozoeRenderer.js");
+const worker = new Worker("./CryptozoeWorker.js");
 const workers = [worker, workerRender];
 
 const broadcast = (action, data) => workers.forEach(worker => worker.postMessage({action, data}));
