@@ -1,0 +1,123 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+body {
+    background: black;
+}
+input, textarea, button {
+    border: 0;
+    border: #333;
+    border-radius: 8px;
+    text-align: center;
+    background: #777;
+    color: white;
+    margin: 4px auto;
+}
+input, button {
+// height: 12px;
+    padding: 3px;
+}
+input[type='range'] {
+    overflow: hidden;
+// width: 80px;
+    -webkit-appearance: none;
+//	background-color: #777;
+}
+input[type='range']::-webkit-slider-runnable-track {
+    height: 10px;
+    -webkit-appearance: none;
+    color: #777;
+    margin-top: -1px;
+}
+input[type='range']::-webkit-slider-thumb {
+    height: 12px;
+    -webkit-appearance: none;
+    width: 12px;
+    border-radius: 6px;
+    cursor: ew-resize;
+    background: #f90;
+}
+.hidden{
+    display: none;
+}
+.panel {
+    position: fixed;
+    user-select: none;
+    z-index: 400;
+    padding: 11px;
+    color: white;
+    background: rgba(111,111,111,0.7);
+    box-shadow: 1px 1px 5px rgba(255,255,255,0.7);
+    top: 20px;
+    border-radius: 10px;
+}
+.panel br{
+    clear: both;
+}
+.panel hr{
+    background: black;
+    height: 1px;
+    padding: 0;
+    margin: 2px 0px;
+    width: 100%;
+}
+.org {
+    width: 500px;
+    left: 900px;
+    display: none;
+}
+#genDesc {
+    width: 480px;
+}
+#gens {
+    display: flex;
+    flex-flow: column wrap;
+    height: 400px;
+    align-content: space-between;
+//justify-content: space-around;
+//flex-direction: column;
+}
+#gens::before,
+#gens::after {
+    content: "";
+    flex-basis: 100%;
+    width: 0;
+    order: 2;
+}
+.gen {
+    border: 0;
+    width: 120px;
+    border: #777;
+    border-radius: 7px;
+    text-align: center;
+    background: #333;
+    color: white;
+    margin: 2px auto;
+    paddong: 1px;
+}
+.gen:nth-child(4n+1) { order: 1; }
+.gen:nth-child(4n+2) { order: 2; }
+.gen:nth-child(4n+3)   { order: 3; }
+.gen:nth-child(4n)   { order: 4; }
+.start {
+    display: none;
+    top: 20%;
+    left: 20%;
+}
+.intro {
+    top: 20%;
+    left: 15%;
+    width: 70%;
+    white-space: pre-wrap;
+}
+.intro button {
+    text-align: center;
+    margin: 0 auto;
+}
+#cryptozoe {
+    position: fixed;
+    top: 0;
+    width: 0;
+    height: 0;
+}
