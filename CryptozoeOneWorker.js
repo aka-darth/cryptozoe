@@ -8,7 +8,7 @@ onmessage = function({data: {action, data}}) {
             console.log('init one worker', data, crossOriginIsolated);
             // Shared... ((
             data.boardBuffer = new ArrayBuffer(data.height * data.width * 16);
-            data.ratsBuffer = new ArrayBuffer(data.height * data.width * 8);// * ratsBufferKeys.length);
+            data.ratsBuffer = new ArrayBuffer(data.height * data.width * 16);// * ratsBufferKeys.length);
             life = new Life({
                 ...data,
                 tickcb: () => (life.lookat && postMessage({action: 'look', data : {

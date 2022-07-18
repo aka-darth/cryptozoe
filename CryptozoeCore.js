@@ -1,7 +1,7 @@
 const etalon = 256;
 const solid = etalon/2;
 const boardBufferKeys = ['s', 'r', 'g', 'b', 'o', 'm'];
-const ratsBufferKeys = [];
+const ratsBufferKeys = ['s', 'r', 'g', 'b', 'o', 'm'];
 const genStr = {
     '00': 'clone',
     '01': 'sun',
@@ -23,6 +23,7 @@ const genStr = {
     '16': 'take target cell mineral',
     '17': 'shit',
     '18': 'give mineral',
+    '19': 'make armor',
 
     '20': 'mind cell sun',
     '21': 'mind self energy',
@@ -87,6 +88,7 @@ const genFullStr = {
     '16': 'Взять минерал из клетки перед носом',
     '17': 'Высрать переваренный минерал',
     '18': 'Дать минерал',
+    '19': 'Нарастить панцирь',
 
     '20': 'Запомнить уровень освещенности своей клетки',
     '21': 'Запомнить свой запас энергии',
@@ -149,6 +151,7 @@ const keyCHPU = (key, data) => {
         'p': 'Позиция рнк', 
         'organicUsed': 'Потребление органики', 
         'a': 'Нос', 
+        'mineralsUsed': 'Съедено минералов', 
         'dm': 'Потребление минералов', 
         'freeze': 'Отдых', 
         'frag': 'Агрессивность', 
@@ -184,13 +187,13 @@ const circle = (ctx, x, y, radius, color = 'white') => {
     ctx.closePath();
 };
 
-const directionVector = a => {
+let directionVector = a => {
     let x = 0;
     let y = 0;
     if([1, 2, 3].includes(a)) x = 1;
     if([5, 6, 7].includes(a)) x = -1;
-    if([0, 1, 8].includes(a)) y = -1;
-    if([3, 4, 5].includes(a)) y = 1;
+    if([0, 1, 8].includes(a)) y = 1;
+    if([3, 4, 5].includes(a)) y = -1;
     return [x, y];
 };
 
@@ -210,13 +213,14 @@ class RatsView {
 }
 
 class BoardView {
-    constructor({offscreen, ctx, boardBuffer, width, height, size}){
+    constructor({offscreen, ctx, boardBuffer, ratsBuffer, width, height, size}){
         this.ctx = ctx || (offscreen && offscreen.getContext("2d"));
         this.ctx.canvas.width  = size * width;
         this.ctx.canvas.height = size * height;
         this.ctx.strokeStyle = '#777777';
         this.ctx.lineWidth = .1;
         this.represent = new Uint16Array(boardBuffer);
+        this.ratpresent = new Uint16Array(ratsBuffer);
         this.width = width;
         this.height = height;
         this.size = size;
@@ -233,28 +237,37 @@ class BoardView {
                     console.error(err);
                 }
             }
+            for(let x=0, y=0, i=0; y < this.height; i++, x++, x>=this.width && (x=0, y++)) {
+                const [s, r, g, b, o, m] = this.ratpresent.slice(boardBufferKeys.length * i, boardBufferKeys.length * (i+1));
+                if (s) {
+                    try {
+                        this.renderRat({x, y, s, r, g, b, o, m});
+                    } catch(err) {
+                        console.log(i,  {x, y, s, r, g, b, o, m}, this.represent.slice(boardBufferKeys.length * i, boardBufferKeys.length * (i + 1)));
+                        console.error(err);
+                    }
+                }
+            }
             // console.timeEnd('render');
         } catch (err) {
             console.error(err);
         }
         requestAnimationFrame(this.tick.bind(this));
     }
+    renderRat(cell) {
+        const halfsize = this.size>>>1;
+        if(cell.s) {
+            this.ctx.translate(cell.x * this.size + halfsize, cell.y * this.size + halfsize);
+            circle(this.ctx, 0, 0, halfsize, `rgb(${cell.r}, ${cell.g}, ${cell.b})`);
+            this.ctx.rotate((-3 + (cell.s - 1)) * Math.PI / 4);
+            this.ctx.fillRect(0, 0, halfsize, halfsize);
+            this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
+    }
     render(cell) {
         const halfsize = this.size>>>1;
-        // console.log(cell);
-        // ctx.fillStyle = `rgb(${cell.r}, ${cell.g}, ${cell.b})`;
-        // ctx.fillRect(cell.x * size, cell.y * size, size, size);
-        // this.circle(cell.x * size, cell.y * size, size, `rgb(${cell.r}, ${cell.g}, ${cell.b})`);
-        if(cell.s) {
-            // this.ctx.fillStyle = `rgb(${cell.r}, ${cell.g}, ${cell.b})`;
-            // const [dx, dy] = directionVector(cell.s);
-            // this.ctx.fillRect(cell.x * this.size + halfsize + dx * halfsize, cell.y * this.size + halfsize + dx * halfsize, halfsize, halfsize);
-            circle(this.ctx, cell.x * this.size + halfsize, cell.y * this.size + halfsize, halfsize, `rgb(${cell.r}, ${cell.g}, ${cell.b})`);
-            //ctx.strokeRect(cell.x * size + size/2, cell.y * size + size/2, size, size);
-        } else {
-            this.ctx.fillStyle = `rgb(${cell.r}, ${cell.g}, ${cell.b})`;
-            this.ctx.fillRect(cell.x * this.size, cell.y * this.size, this.size, this.size);
-        }
+        this.ctx.fillStyle = `rgb(${cell.r}, ${cell.g}, ${cell.b})`;
+        this.ctx.fillRect(cell.x * this.size, cell.y * this.size, this.size, this.size);
         if (cell.o) {
             this.ctx.fillStyle = 'white';
             const s = cell.o * this.size >>> 7;
@@ -266,7 +279,7 @@ class BoardView {
     }
 }
 class Board2  {
-    bufferKeys = ['o','m']
+    bufferKeys = ['o','m'];
     constructor(life) {
         this.life = life;
         this.width = life.width;
@@ -275,8 +288,6 @@ class Board2  {
             this.data[i] = life.initO;
             this.data[i + 1] = uint(Math.floor(i / life.width) * life.initM * life.sizeC);
         }
-        delete life.initO;
-        delete life.initM;
     }
     get([x,y]) {
         return {x,y, o: this.data[(this.width * y + x)*2], m: this.data[(this.width * y + x)*2 + 1]}
@@ -309,7 +320,7 @@ class Board2  {
             cell1.o+=delta;
             cell2.o-=delta;
         }
-        if(cell1.y === cell2.y && cell1.m > cell2.m) {
+        if(cell1.y === cell2.y && cell1.m > cell2.m && cell2.m < solid) {
             cell1.m--;
             cell2.m++;    
         } else if(cell1.y > cell1.y && cell1.m < solid) {
@@ -318,7 +329,7 @@ class Board2  {
         } else if(cell1.y < cell2.y && cell1.m > solid && !this.life.getRat([cell2.x, cell2.y])) {
             [cell1.m,cell2.m] = [cell2.m, cell1.m];
         }
-        if(cell1.y === cell2.y && cell1.m < cell2.m) {
+        if(cell1.y === cell2.y && cell1.m < cell2.m && cell1.m < solid) {
             cell1.m++;
             cell2.m--;
         } else if(cell2.y > cell1.y && cell2.m < solid) {
@@ -359,8 +370,10 @@ class Board2  {
         // console.timeEnd('diffusion');
     }
     total() {
+        console.log(this.data);
         return this.data.reduce((total, el, i) => {
-            total[i%2?'o':'m'] += el;
+            // console.log(i%2?'m':'o', el, total);
+            total[i%2?'m':'o'] += el;
             return total;
         }, {o: 0, m: 0})
     }
@@ -368,10 +381,11 @@ class Board2  {
 class Rat {
     constructor({
         life,
-        x, y, e = 128, m = 0, d = 0,
+        x, y, e = 128, m = 1, d = 0,
         a =  Math.floor(Math.random() * 8), gen = '0100', c = 0, s = 0, p = 0, sun = 0, frag = 0, mineralsUsed = 0
     }){
         this.life = life;
+        this.id = this.life.id++;
         this.x = x;
         this.y = y;
         this.gen = gen;
@@ -389,10 +403,11 @@ class Rat {
         this.organicUsed = 0; // o use
         this.frag = frag; // aggressive
         this.i = 0; // ticks
+        this.armor = 0; // armor
         this.life.obj.push(this);
         // this.up_represent();
     }
-    bufferKeys= ['x','y','e','m','p','d','c','a','dm','organicUsed','frag','i','freeze']
+    bufferKeys= ['x','y','e','m','p','d','c','a','dm','organicUsed','frag','i','freeze'];
     toBuffer() {
         return this.bufferKeys.map(key => this[key]);
         /*
@@ -459,7 +474,7 @@ class Rat {
     }
     toHTML() {
         return Object.keys(this)
-                .filter(key => !['life', 'age', 'bufferKeys', 'gen', 'p', 'mineralsUsed'].includes(key))
+                .filter(key => !['life', 'age', 'bufferKeys', 'gen', 'p'].includes(key))
                 .map(key => keyCHPU(key, this[key]))
                 .join('<br/>') + `<br/>
 				Возраст: ${Math.floor(this.i/etalon<<1)} дней <br/>
@@ -516,22 +531,28 @@ class Rat {
     tick() {
         try {
             if(!(--this.freeze > 0)) {
-                const gen = this.gen.slice(this.p, this.p + 2);
-                if(this.life.genDict[gen]) {
-                    this.life.genDict[gen](this);
-                    // this.up_represent();
-                    this.p += 2;
-                } else {
-                    this.gen = this.gen.substr(0, this.p) + this.gen.substr(this.p + 2, this.gen.length);
-                    this.e -= 1;
-                    //console.log('bad gen', this.p, this.gen, this.gen.slice(this.p, this.p + 2));
-                }
-                if(this.p >= this.gen.length || this.p < 0) this.p = 0;
+                this.genAction(0);
             }
             this.live();
         } catch (err) {
             console.error(this, err);
             this.die();
+        }
+    }
+    genAction(rec = 0) {
+        if(this.p >= this.gen.length || this.p < 0) this.p = 0;
+        const gen = this.gen.slice(this.p, this.p + 2);
+        //console.log(gen, this);
+        if(this.life.genDict[gen]) {
+            this.life.genDict[gen](this);
+            // this.up_represent();
+            // turbo mind
+            this.p += 2;
+            if(+gen >= 20 && rec <= 8) this.genAction(++rec);
+        } else {
+            this.gen = this.gen.substr(0, this.p) + this.gen.substr(this.p + 2, this.gen.length);
+            this.e -= 1;
+            //console.log('bad gen', this.p, this.gen, this.gen.slice(this.p, this.p + 2));
         }
     }
     live() {
@@ -548,7 +569,6 @@ class Rat {
     }
     die() {
         const cell = this.life.board.get(this.xy);
-        // console.log('die', cell, this, this.xy, this.life.board.represent(this.xy));
         if(cell) {
             this.life.board.set(this.xy, {
                 m: cell.m + this.m + this.mineralsUsed,
@@ -562,7 +582,7 @@ class Rat {
         this.life.obj.splice(this.life.obj.indexOf(this), 1);
         if(this.life.lookat === this) this.life.lookat = null;
         if(!this.life.obj.length) {
-            console.log('Life end(', life.days, life);
+            console.log('Life end after', life.days, 'days', life, life.total());
             this.life.restart();
         }
     }
@@ -596,21 +616,32 @@ class Rat {
                 this.turn();
             } else {
                 const childGen = this.childGen || Math.random() < this.life.mutastable ? this.gen : mutate(this.gen);
-                new Rat({
+                const pM = this.m;
+                const pMu = this.mineralsUsed;
+                const halfM = this.m >>> 1;
+                const halfMu = this.mineralsUsed >>> 1;
+                const child = new Rat({
                     life: this.life,
                     x, y,
                     c: (n || childGen !== this.gen) ? 0 : this.c + 1,
                     e: this.e >>> 1,
-                    m: this.m >>> 1 + this.i&2, // 7=3+3 compens
-                    mineralsUsed: this.mineralsUsed >>> 1,
+                    m: halfM + this.i%2,
+                    mineralsUsed: halfMu + this.i%2,
                     sun: this.sun >>> 1,
                     frag: this.frag >>> 1,
                     gen: childGen,
                 });
                 this.e = this.e >>> 1;
-                this.m = this.m >>> 1;
-                this.mineralsUsed = this.mineralsUsed >>> 1;
+                this.m = halfM + (this.i+1)%2;
+                this.mineralsUsed = halfMu + (this.i+1)%2;
                 this.freeze = Math.max(this.gen.length >>> 4, 8);
+
+                if (pM > this.m + child.m) {
+                    console.error('M Fail', pM, this.m, child.m, this, child, this.i);
+                }
+                if (pMu > this.mineralsUsed + child.mineralsUsed) {
+                    console.error('MU Fail', pMu, this.mineralsUsed, child.mineralsUsed, this, child);
+                }
             }
         }
         this.e--;
@@ -621,7 +652,8 @@ class Rat {
     }
     kill() {
         if(this.target && this.e > 4) {
-            this.target.die();
+            if(this.target.armor > 0) this.target.armor--;
+            else this.target.die();
             this.frag += this.life.agressive;
         }
         this.freeze -= 4;
@@ -637,7 +669,7 @@ class Rat {
     eat(type, target) {
         switch(type) {
             case 'm':
-                if(this.m > 0 && (this.m + this.mineralsUsed) < solid) {
+                if(this.m > 0) {
                     this.e += 1 * this.life.mineralEff;
                     this.dm += 1 * this.life.mineralEff;
                     this.m -= 1;
@@ -655,11 +687,14 @@ class Rat {
                 break;
             case 'e':
                 if(this.target && this.e > 4) {
-                    const eate = Math.max(this.target.e, this.life.agressive);
-                    this.target.e -= eate;
-                    this.e += eate >>> 1;
-                    this.frag += eate;
-                    this.freeze -= 4;
+                    if(this.target.armor > 0) this.target.armor--;
+                    else {
+                        const eate = Math.max(this.target.e, this.life.agressive);
+                        this.target.e -= eate;
+                        this.e += eate >>> 1;
+                        this.frag += eate;
+                    }
+                    this.freeze = 4;
                 }
                 break;
             default:
@@ -670,7 +705,7 @@ class Rat {
         switch(type) {
             case 'm':
                 if(this.m > 0) {
-                    if(target && this.target) {
+                    if(target && this.target && target.totalM < solid) {
                         this.target.m += 1;
                         this.m -= 1;
                     } else if (!target) {
@@ -717,6 +752,7 @@ class Rat {
 class Life {
     constructor(data) {
         Object.assign(this, data, {
+            id: 0,
             days: 0,
             obj: [],
             tickTime: data.tickTime > 1 ? data.tickTime : 1
@@ -724,13 +760,31 @@ class Life {
         this.sunPower = etalon/2; // good morning
         this.sizeC = etalon/this.height;
         this.buffer = new Uint16Array(data.boardBuffer);
+        this.ratsBufferR = new Uint16Array(data.ratsBuffer);
         this.board = new Board2(this);
         this.agressive = this.agressive << 2;
         for(let i = 0; this.genbank.length && i < this.width; i += Math.floor(1 + this.width / (4*this.genbank.length))) {
             new Rat({life: this, x: Math.floor(this.width * Math.random()), y:  this.height - Math.floor(Math.random() * this.height), gen: this.genbank.random()});
         }
-        delete this.genbank;
         console.log('New life started', this, this.total());
+        this.represent();
+    }
+    restart() {
+        // this.paused = true;
+        // console.log('oops..')
+        // return;
+        this.id = 0;
+        this.days = 0;
+        this.obj = [];
+        this.sunPower = etalon/2; // good morning
+        this.day = false; // good morning please
+        this.buffer = new Uint16Array(this.boardBuffer);
+        this.ratsBufferR = new Uint16Array(this.ratsBuffer);
+        this.board = new Board2(this);
+        for(let i = 0; this.genbank.length && i < this.width; i += Math.floor(1 + this.width / (4*this.genbank.length))) {
+            new Rat({life: this, x: Math.floor(this.width * Math.random()), y:  this.height - Math.floor(Math.random() * this.height), gen: this.genbank.random()});
+        }
+        console.log('Life restarted', this, this.total());
         this.represent();
     }
     genDict = {
@@ -759,7 +813,7 @@ class Life {
         // take m
         '11': rat => {
             const cell = this.board.get(rat.xy);
-            if (cell && cell.m > 0 && rat.m < etalon) {
+            if (cell && cell.m > 0 && rat.totalM < solid) {
                 rat.m += 1;
                 rat.e -= 1;
                 this.board.set(rat.xy, {m: cell.m - 1})
@@ -776,7 +830,7 @@ class Life {
         // take target m
         '16': rat => {
             const cell = this.board.get(rat.target_xy);
-            if (cell && cell.m > 8 && rat.totalM < etalon) {
+            if (cell && cell.m > 8 && (8 + rat.totalM) < solid) {
                 rat.m += 8;
                 rat.freeze = 4;
                 this.board.set(rat.target_xy, {m: cell.m - 8})
@@ -786,6 +840,14 @@ class Life {
         '17': rat => rat.give('m'),
         // give m
         '18': rat => rat.give('m' , true),
+        // armor
+        '19': rat => {
+            if(rat.m > 0 && rat.armor < solid) {
+                rat.armor += 1;
+                rat.mineralsUsed += 1;
+                rat.m -= 1;
+            }
+        },
 
         // mind cell sun level
         '20': rat => rat.d = this.getSunEnergy(...rat.xy),
@@ -827,16 +889,16 @@ class Life {
         // reset
         '38': rat => rat.d = 0,
 
-        '40': rat => rat.d && (rat.p -= 2 * 2),
-        '41': rat => rat.d && (rat.p -= 2 * 3),
-        '42': rat => rat.d && (rat.p -= 2 * 4),
-        '43': rat => rat.d && (rat.p -= 2 * 5),
-        '44': rat => rat.d && (rat.p -= 2 * 6),
-        '45': rat => rat.d && (rat.p -= 2 * 7),
-        '46': rat => rat.d && (rat.p -= 2 * 8),
-        '47': rat => rat.d && (rat.p -= 2 * 9),
-        '48': rat => rat.d && (rat.p -= 2 * 10),
-        '49': rat => rat.d && (rat.p -= 2 * 11),
+        '40': rat => rat.d && (rat.p -= 2 * 3),
+        '41': rat => rat.d && (rat.p -= 2 * 4),
+        '42': rat => rat.d && (rat.p -= 2 * 5),
+        '43': rat => rat.d && (rat.p -= 2 * 6),
+        '44': rat => rat.d && (rat.p -= 2 * 7),
+        '45': rat => rat.d && (rat.p -= 2 * 8),
+        '46': rat => rat.d && (rat.p -= 2 * 9),
+        '47': rat => rat.d && (rat.p -= 2 * 10),
+        '48': rat => rat.d && (rat.p -= 2 * 11),
+        '49': rat => rat.d && (rat.p -= 2 * 12),
         '50': rat => rat.d && (rat.p += 2),
         '51': rat => rat.d && (rat.p += 2 * 2),
         '52': rat => rat.d && (rat.p += 2 * 3),
@@ -899,21 +961,23 @@ class Life {
             y < this.height;
             x++, b += boardBufferKeys.length, x >= this.width && (x = 0, y++, sunLevel -= etalon / this.height)
         ) {
+            const cell = this.board.get([x,y]);
+            const se = Math.max(sunLevel - (fade[x] || 0) * this.ratOpacity, 0);
+            // console.log(x, y, sunLevel, se, fade[x], fade[x] * this.ratOpacity, fade);
+            this.buffer.set([
+                0,
+                se << 1,
+                se,
+                cell.m * 2,
+                cell.o, cell.m
+            ].map(uint), b);
             const rat = this.getRat([x,y]);
             if(rat) {
                 fade[x]++;
-                this.buffer.set(rat.represent(), b);
+                // this.buffer.set(rat.represent(), b);
+                this.ratsBufferR.set(rat.represent(), b);
             } else {
-                const cell = this.board.get([x,y]);
-                const se = Math.max(sunLevel - (fade[x] || 0) * this.ratOpacity, 0);
-                // console.log(x, y, sunLevel, se, fade[x], fade[x] * this.ratOpacity, fade);
-                this.buffer.set([
-                    0,
-                    se << 1,
-                    se,
-                    cell.m * 2,
-                    cell.o, cell.m
-                ].map(uint), b);
+                this.ratsBufferR.set([0,0,0,0], b);
             }
         }
     }
@@ -927,4 +991,14 @@ class Life {
             }, {length: this.obj.length}),
         }
     }
+}
+
+try {
+    module.exports = {
+        Life,
+        BoardView
+    }
+} catch(err) {
+    if(err.toString() !== 'ReferenceError: module is not defined') throw err;
+    // else ok...
 }

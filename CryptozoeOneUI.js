@@ -4,13 +4,13 @@ const defaults = {
     initM: .1,
     photosyntheticity: .4,
     backO: .05,
-    organicEff: 16,
-    mineralEff: 8,
+    organicEff: 14,
+    mineralEff: 10,
     age: 200,
-    mutastable: .97,
+    mutastable: .91,
     agressive: 8,
-    diffusion: 32,
-    tickTime: 1,
+    diffusion: 16,
+    tickTime: 32,
     sunPower: 128,
     ratOpacity: 16,
 };
@@ -66,8 +66,8 @@ div.innerHTML = `<div class="panel intro ${localStorage.getItem('introViewed') ?
 	Шанс мутации: <input class="invert" name="mutastable" type="range" min=0 max=1 value=${defaults.mutastable} step=.05 /><br/>
 	Макс возраст (геноциклов): <input name="age" type="range" min=8 max=1000 value=${defaults.age} /><br/>
 	Генофонд: <br/><textarea cols="60" rows="4" name="genbank">0001
-00111217070234
-0011120217051612121212
+001112170702111234
+00111217161212121219
 0902140900050214
     </textarea><br/>
 	<button>Создать мир</button>
@@ -127,11 +127,9 @@ document.forms.p.onsubmit = e => {
     e.preventDefault();
     const params = {
         ...defaults,
-
         height: 128,
         width: 128,
         sunOpacity: 8,
-        genbank: ['0100']
     };
     [...document.forms.p].forEach(el => (params[el.name] && (params[el.name] = +el.value)) || console.warn(el));
     params.genbank = document.forms.p.genbank.value.split('\n').map(gen => gen.replace(/[^\d]/g, '').trim()).filter(gen => !!gen);
